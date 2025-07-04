@@ -25,7 +25,6 @@ import logging
 from logging.handlers import RotatingFileHandler
 import json
 import tempfile
-import arabic_reshaper
 
 import pymupdf
 import tkinter as tk
@@ -213,8 +212,6 @@ def normalize(text: str,
         result = ''.join(c for c in nfkd if not unicodedata.combining(c))
     if lowercase:
         result = result.lower()
-
-    result = arabic_reshaper.reshape(result)  # Reshape Arabic text
 
     return result
 
