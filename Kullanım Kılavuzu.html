@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AraBul PDF Arama Programı - Kullanım Kılavuzu</title>
+  <style>
+    :root {
+      --bg-light: #f4f4f8;
+      --bg-dark: #1e1e2f;
+      --text-light: #333;
+      --text-dark: #eee;
+      --accent: #4a90e2;
+      --card-bg-light: white;
+      --card-bg-dark: #2c2c3e;
+      --border-radius: 12px;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 2rem;
+      background-color: var(--bg-light);
+      color: var(--text-light);
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .dark-mode {
+      background-color: var(--bg-dark);
+      color: var(--text-dark);
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+    }
+
+    h1, h2 {
+      color: var(--accent);
+      text-align: center;
+    }
+
+    .card {
+      background-color: var(--card-bg-light);
+      padding: 1.5rem;
+      border-radius: var(--border-radius);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+      transition: background-color 0.3s;
+    }
+
+    .dark-mode .card {
+      background-color: var(--card-bg-dark);
+    }
+
+    ul, ol {
+      margin-left: 1.5rem;
+    }
+
+    .video-container {
+      margin-top: 2rem;
+      text-align: center;
+    }
+
+    .video-container iframe {
+      width: 100%;
+      max-width: 720px;
+      height: 405px;
+      border: none;
+      border-radius: var(--border-radius);
+    }
+
+    .video-container video {
+      width: 100%;
+      /* max-width: 480px; */
+      height: auto;
+      border-radius: var(--border-radius);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .theme-toggle {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      background-color: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      font-size: 20px;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <button class="theme-toggle" onclick="toggleTheme()">🔆</button>
+
+  <div class="container">
+    <h1>AraBul PDF Arama Programı</h1>
+    <h2>Kullanım Kılavuzu</h2>
+
+    <div class="card video-container">
+        <h3>Tanıtım Videosu</h3>
+        <video controls autoplay loop muted>
+            <source src=".\appdata\assets\Kullanım Kılavuzu.mp4" type="video/mp4">
+            Tarayıcınız video etiketini desteklemiyor.
+        </video>
+    </div>  
+
+    <div class="card">
+      <h3>Temel Bilgiler</h3>
+      <p>AraBul, PDF dosyalarınızda metin araması yapmanıza olanak sağlayan bir uygulamadır. Belirttiğiniz klasör ve alt klasörlerdeki tüm PDF'leri tarayarak aradığınız metni bulur.</p>
+    </div>
+
+    <div class="card">
+      <h3>Hızlı Başlangıç</h3>
+      <ol>
+        <li><strong>Dizin Seç</strong> düğmesi ile PDF dosyalarının bulunduğu klasörü belirleyin</li>
+        <li>Arama kutusuna aramak istediğiniz metni yazın</li>
+        <li><strong>Bul</strong> düğmesine tıklayın veya Enter tuşuna basın</li>
+        <li>Sonuçlar listesinde bulunan eşleşmeleri görüntüleyin</li>
+        <li>Herhangi bir sonuca çift tıklayarak ilgili PDF'i açın</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h3>Anahtar Özellikler</h3>
+      <ul>
+        <li><strong>Tam Eşleşme</strong> onay kutusu: Yalnızca tam metin eşleşmelerini bulmak için kullanın</li>
+        <li><strong>Tema Değiştirme (🔆)</strong>: Koyu ve açık tema arasında geçiş yapın</li>
+        <li><strong>Arama Geçmişi</strong>: Önceki aramalarınıza arama kutusu açılır menüsünden erişin</li>
+        <li><strong>Sonuç Listesi Sıralama</strong>: Herhangi bir sütun başlığına tıklayarak sonuçları sıralayın</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>Sonuç Listesi Sağ Tık Menüsü</h3>
+      <ul>
+        <li><strong>Aç</strong>: PDF'i görüntüleyicide açar</li>
+        <li><strong>Kaynağı/Metni Kopyala</strong>: Seçili bilgiyi panoya kopyalar</li>
+        <li><strong>Dosya Gezgininde Göster</strong>: PDF dosyasını bulunduğu klasörde gösterir</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>İpuçları</h3>
+      <ul>
+        <li>Uzun aramaları <strong>Durdur</strong> düğmesi ile iptal edebilirsiniz</li>
+        <li>Program ayarlarınızı (varsayılan klasör, pencere boyutu, tema) otomatik kaydeder</li>
+        <li>Üst kısımdaki gemi resmi geleneksel bir Ashab-ı Kehf yazılı Amentü gemisini temsil eder</li>
+        <li>Seçilen dizin, varsayılan olarak kaydedilir ve uygulama yeniden başlatıldığında bu seçim hatırlanır.</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      document.body.classList.toggle('dark-mode');
+    }
+  </script>
+</body>
+</html>
