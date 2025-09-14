@@ -271,9 +271,10 @@ def search_text_in_pdf(pdf_path: str, search_term: str, exact_match: bool) -> li
             if index == -1:
                 continue
             # build snippet around match
-            start = max(0, index - 30)
-            end = index + len(term) + 30
-            snippet = f"...{raw[start:end]}..."
+            start = max(0, index - 50)
+            end = index + len(term) + 50
+            snippet = f"...{page_text[start:end]}..."
+
             try:
                 words = [(w[4], pymupdf.Rect(*w[:4])) for w in page.get_text("words")]
             except Exception:
@@ -452,7 +453,19 @@ class PDFSearchApp:
 
         self.progress = ttk.Progressbar(frame, orient=tk.HORIZONTAL, length=400, mode='determinate')
         self.progress.pack(pady=5)
-        
+
+        # --- Snippet Filter UI ---
+        filter_frame = ttk.Frame(frame)
+        filter_frame.pack(pady=5)
+        self.snippet_filter_var = tk.StringVar()
+        self.snippet_filter_entry = ttk.Entry(filter_frame, textvariable=self.snippet_filter_var, width=30)
+        self.snippet_filter_entry.pack(side=tk.LEFT, padx=5)
+        self.snippet_filter_button = ttk.Button(filter_frame, text="Filtrele", command=self.apply_snippet_filter)
+        self.snippet_filter_button.pack(side=tk.LEFT, padx=5)
+        ToolTip(self.snippet_filter_entry, "Sonuçları kelime ile filtreler.")
+        ToolTip(self.snippet_filter_button, "Sonuçları kelime ile filtreler.")
+        # --- End Snippet Filter UI ---
+
         ### Treeview
         # self.style.configure("Treeview", background="#E1E1E1", foreground="#000000", rowheight=25, fieldbackground="#E1E1E1")
         self.style.map('Treeview', background=[('selected', self.HIGHLIGHT_COLOR)])
@@ -629,7 +642,10 @@ class PDFSearchApp:
         sel = self.tree.selection()
         if not sel:
             return
-        index = self.tree.index(sel[0])
+        
+        # index = self.tree.index(sel[0]) # self.tree.index gets the original index, but after filtering the results with word, original index is corrupted.
+        index = int(self.tree.item(sel[0], "values")[0]) - 1
+
         path, page_num, rects, _snippet = self.results[index]
 
         def process_pdf():
@@ -787,6 +803,22 @@ class PDFSearchApp:
             self.tree.move(child, "", index)
         
         self.debug_log(f"Sonuçlar '{column}' sütununa göre {'azalan' if self.sort_reverse else 'artan'} sırada sıralandı.")
+
+    def apply_snippet_filter(self):
+        """Filter results by keyword in snippet and update Treeview, keeping original index."""
+        keyword = self.snippet_filter_var.get()
+        keyword = normalize(keyword)
+
+        self.tree.delete(*self.tree.get_children())
+        count = 0
+        for idx, (path, page_num, rects, snippet) in enumerate(self.results, 1):
+            if not keyword or keyword in snippet:
+                title = os.path.splitext(os.path.basename(path))[0]
+                print(title)
+                self.tree.insert("", "end", values=(idx, f"{title}, {page_num}", snippet))
+                count += 1
+        self.count_label.config(text=f"{count} eşleşme gösteriliyor.")
+        self.debug_log(f"Kelime filtresi uygulandı: '{keyword}' ile {count} sonuç.")
 
 if __name__ == "__main__":
     root = tk.Tk()
