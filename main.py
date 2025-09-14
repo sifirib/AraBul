@@ -2,7 +2,7 @@
 AraBul - PDF Search Application
 Author: Original author unknown
 Contact: ahusrevceker+arabul@gmail.com
-Version: 1.11
+Version: 1.13
 Date: May 31, 2025
 Description: A desktop application to search text within PDF files, with highlighting capability.
 License: All rights reserved by Prof. Dr. Ebubekir Sifil. This software may not be copied, distributed, or modified without explicit permission.
