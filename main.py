@@ -2,7 +2,7 @@
 AraBul - PDF Search Application
 Author: Original author unknown
 Contact: ahusrevceker+arabul@gmail.com
-Version: 1.13
+Version: 1.15
 Date: May 31, 2025
 Description: A desktop application to search text within PDF files, with highlighting capability.
 License: All rights reserved by Prof. Dr. Ebubekir Sifil. This software may not be copied, distributed, or modified without explicit permission.
@@ -195,8 +195,10 @@ HYPHENS = (
 def normalize(text: str,
               lowercase: bool = True,
               remove_accents: bool = True,
-              remove_whitespaces: bool = True) -> str:
-    if not text: return ''
+              remove_whitespaces: bool = True,
+              remove_punctuation: bool = True) -> str:
+    if not text:
+        return ''
     result = ''.join(
         c for c in text
         if not (unicodedata.category(c) in ('Cf', 'Cc', 'Zs', 'Mn') and c != ' ')
@@ -205,14 +207,19 @@ def normalize(text: str,
         result = result.replace(hyphen, '')
     result = result.replace('\xad', '').replace('\ufeff', '').replace('\u200f', '')
     result = re.sub(r'­\n|-\n|\n', '', result)
+
+    # Nokta, virgül, ünlem, soru işareti karakterlerinden sonra boşluk yoksa, boşluk ekle
+    result = re.sub(r'([.,!?])([^\s])', r'\1 \2', result)
+
     if remove_whitespaces:
         result = re.sub(r'\s+', ' ', result).strip()
     if remove_accents:
         nfkd = unicodedata.normalize('NFKD', result)
         result = ''.join(c for c in nfkd if not unicodedata.combining(c))
+    if remove_punctuation:
+        result = re.sub(r'[\'",.:;!?()\[\]{}<>\\\/|`~@#$%^&*_+=]', '', result)
     if lowercase:
         result = result.lower()
-
     return result
 
 def bond_hyphenated_words(words: list[tuple[str, pymupdf.Rect]]) -> list[tuple[str, pymupdf.Rect]]:
@@ -255,11 +262,12 @@ def handle_exception(func):
     return wrapper
 
 @handle_exception
-def search_text_in_pdf(pdf_path: str, search_term: str, exact_match: bool) -> list[tuple[str, int, list[pymupdf.Rect], str]]:
+def search_text_in_pdf(pdf_path: str, search_term: str, exact_match: bool, unordered_match: bool = False) -> list[tuple[str, int, list[pymupdf.Rect], str]]:
     matches: list[tuple[str, int, list[pymupdf.Rect], str]] = []
     pdf = pymupdf.open(pdf_path)
     with pdf:
         term = normalize(search_term)
+        term_words = term.split()
         for page in pdf:
             try:
                 raw = get_pdf_text(pdf_path, page)  # Use cached text retrieval
@@ -267,13 +275,21 @@ def search_text_in_pdf(pdf_path: str, search_term: str, exact_match: bool) -> li
             except Exception:
                 logger.exception(f"{pdf_path} dosyasının {page.number+1}. sayfasından metin çıkarılamadı.")
                 continue
-            index = page_text.find(term)
-            if index == -1:
-                continue
-            # build snippet around match
-            start = max(0, index - 50)
-            end = index + len(term) + 50
-            snippet = f"...{page_text[start:end]}..."
+            if not unordered_match:
+                index = page_text.find(term)
+                if index == -1:
+                    continue
+                start = max(0, index - 50)
+                end = index + len(term) + 50
+                snippet = page_text[start:end]
+            else:
+                first_word = term_words[0]
+                index = page_text.find(first_word)
+                if index == -1:
+                    continue
+                start = max(0, index - 50)
+                end = index + len(first_word) + 50
+                snippet = page_text[start:end]
 
             try:
                 words = [(w[4], pymupdf.Rect(*w[:4])) for w in page.get_text("words")]
@@ -281,12 +297,18 @@ def search_text_in_pdf(pdf_path: str, search_term: str, exact_match: bool) -> li
                 logger.exception(f"{pdf_path} dosyasının {page.number+1}. sayfasından kelimeler alınamadı.")
                 continue
             word_blocks = bond_hyphenated_words(words)
-            n = len(term.split())
+            n = len(term_words)
             for i in range(len(word_blocks) - n + 1):
                 seq = ' '.join(normalize(w[0]) for w in word_blocks[i:i+n])
-                if (term == seq if exact_match else term in seq):
-                    rects = [w[1] for w in word_blocks[i:i+n]]
-                    matches.append((os.path.basename(pdf_path), page.number+1, rects, " ".join(snippet.splitlines())))
+
+                if unordered_match:
+                    if all(w in seq for w in term_words):
+                        rects = [w[1] for w in word_blocks[i:i+n]]
+                        matches.append((os.path.basename(pdf_path), page.number+1, rects, " ".join(snippet.splitlines())))
+                else:
+                    if (term == seq if exact_match else term in seq):
+                        rects = [w[1] for w in word_blocks[i:i+n]]
+                        matches.append((os.path.basename(pdf_path), page.number+1, rects, " ".join(snippet.splitlines())))
     return matches
 
 class PDFSearchApp:
@@ -323,6 +345,7 @@ class PDFSearchApp:
         default_folder = self.config.get("default_folder", os.path.join(os.getcwd(), "pdfs"))
         self.font_size = self.config.get("font_size", self.DEFAULT_FONT_SIZE)
         self.exact_match = tk.BooleanVar(value=False)
+        self.unordered_match = tk.BooleanVar(value=False)
         # Initialize search history
         self.search_history = self.config.get("search_history", [])
         # Track column sorting
@@ -431,16 +454,31 @@ class PDFSearchApp:
         self.search_button.pack(side=tk.LEFT, padx=5)
         self.cancel_button = ttk.Button(btn_frame, text="Durdur", command=self.cancel_search, state=tk.DISABLED)
         self.cancel_button.pack(side=tk.LEFT, padx=5)
+        def on_exact_match_toggle():
+            if self.exact_match.get():
+                self.unordered_match_checkbox.config(state=tk.DISABLED)
+            else:
+                self.unordered_match_checkbox.config(state=tk.NORMAL)
+        def on_unordered_match_toggle():
+            if self.unordered_match.get():
+                self.exact_match_checkbox.config(state=tk.DISABLED)
+            else:
+                self.exact_match_checkbox.config(state=tk.NORMAL)
         self.exact_match_checkbox = ttk.Checkbutton(
-            btn_frame, text="Tam Eşleşme", variable=self.exact_match
+            btn_frame, text="Tam Eşleşme", variable=self.exact_match, command=on_exact_match_toggle
         )
         self.exact_match_checkbox.pack(side=tk.LEFT, padx=5)
+        self.unordered_match_checkbox = ttk.Checkbutton(
+            btn_frame, text="Takdim Tehir", variable=self.unordered_match, command=on_unordered_match_toggle
+        )
+        self.unordered_match_checkbox.pack(side=tk.LEFT, padx=5)
         self.theme_button = ttk.Button(btn_frame, text=self.ICON_THEME_BUTTON, width=2, command=self.toggle_theme)
         self.theme_button.pack(side=tk.RIGHT, padx=5)
         ToolTip(self.theme_button, "Tema arasında geçiş yapar (Koyu/Açık).")
         ToolTip(self.search_button, "Aramayı başlatır.")
         ToolTip(self.cancel_button, "Devam eden aramayı durdurur.")
         ToolTip(self.exact_match_checkbox, "Tam eşleşme araması yapar. Örneğin, 'kitap' arandığında 'kitaplık' eşleşmez.")
+        ToolTip(self.unordered_match_checkbox, "Aranan kelimelerin cümledeki sırasını önemsiz kılar.")
 
         self.count_label = ttk.Label(
             frame, font=("TkDefaultFont", self.font_size, "bold"), foreground=self.HIGHLIGHT_COLOR
@@ -490,7 +528,6 @@ class PDFSearchApp:
         self.tree.bind("<Button-3>", self._show_menu)  # Bind right-click to show the context menu
 
         self._create_context_menu()
-
         self.debug = tk.Text(frame, height=2, state=tk.DISABLED)
         self.debug.pack(fill=tk.X, padx=5, pady=(0, 5))
         self.debug_log("Program başlatıldı.")
@@ -578,7 +615,8 @@ class PDFSearchApp:
         self.count_label.config(text="Aranıyor...")
         self.debug_log(f"'{folder}' dizininde '{term}' araması başlatıldı.")
         exact_match = self.exact_match.get()
-        threading.Thread(target=self._run_search, args=(folder, term, exact_match), daemon=True).start()
+        unordered_match = self.unordered_match.get()
+        threading.Thread(target=self._run_search, args=(folder, term, exact_match, unordered_match), daemon=True).start()
 
     def cancel_search(self) -> None:
         self._cancel_event.set()
@@ -587,7 +625,7 @@ class PDFSearchApp:
         self.debug_log("Arama kullanıcı tarafından durduruldu.")
         self._set_busy(False)
 
-    def _run_search(self, folder: str, term: str, exact_match: bool) -> None:
+    def _run_search(self, folder: str, term: str, exact_match: bool, unordered_match: bool) -> None:
         total = 0
         start = time.time()
         pdf_list = get_pdf_files(folder)
@@ -607,7 +645,7 @@ class PDFSearchApp:
             if self._cancel_event.is_set():
                 break
             try:
-                matches = search_text_in_pdf(path, term, exact_match)
+                matches = search_text_in_pdf(path, term, exact_match, unordered_match)
             except Exception:
                 logger.exception(f"{path} işlenemedi.")
                 self.root.after(0, lambda p=path: self.debug_log(f"{p} işlenemedi."))
@@ -619,7 +657,7 @@ class PDFSearchApp:
                 total += 1
                 self.results.append((path, page_num, rects, snippet))
                 title = os.path.splitext(os.path.basename(src))[0]
-                self.root.after(0, lambda t=total, ti=title, pn=page_num, sn=snippet:
+                self.root.after(0, lambda t=total, ti=title, pn=page_num, sn=f"...{snippet}...":
                                 self.tree.insert("", "end", values=(t, f"{ti}, {pn}", sn)))
 
             elapsed = time.time() - start
@@ -760,6 +798,7 @@ class PDFSearchApp:
         self.browse_button.config(state=state)
         self.search_button.config(state=state)
         self.exact_match_checkbox.config(state=state)
+        self.unordered_match_checkbox.config(state=state)
         self.theme_button.config(state=state)
         
         if busy:self.search_entry.unbind("<Return>")
@@ -814,8 +853,7 @@ class PDFSearchApp:
         for idx, (path, page_num, rects, snippet) in enumerate(self.results, 1):
             if not keyword or keyword in snippet:
                 title = os.path.splitext(os.path.basename(path))[0]
-                print(title)
-                self.tree.insert("", "end", values=(idx, f"{title}, {page_num}", snippet))
+                self.tree.insert("", "end", values=(idx, f"{title}, {page_num}", f"...{snippet}..."))
                 count += 1
         self.count_label.config(text=f"{count} eşleşme gösteriliyor.")
         self.debug_log(f"Kelime filtresi uygulandı: '{keyword}' ile {count} sonuç.")
